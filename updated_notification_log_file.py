@@ -9,10 +9,11 @@ from panos.device import SystemSettings
 from dotenv import load_dotenv
 
 # ===== Logging setup (only change) =====
+# Create a logfile name like palo_YYYYMMDD.log in the same directory
 date_str = datetime.now().strftime("%Y%m%d")
 log_filename = f"palo_{date_str}.log"
 
-# Configure logging to file and console
+# Configure logging: both console + file
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -23,16 +24,20 @@ logging.basicConfig(
     ]
 )
 
-def log(message, level="info"):
-    """Helper to print + log consistently"""
-    if level == "error":
-        logging.error(message)
-    elif level == "warning":
-        logging.warning(message)
-    elif level == "debug":
-        logging.debug(message)
-    else:
-        logging.info(message)
+# Redirect all print() and error output to logging automatically
+class LoggerWriter:
+    def __init__(self, level):
+        self.level = level
+    def write(self, message):
+        if message.strip():
+            self.level(message.strip())
+    def flush(self):
+        pass
+
+sys.stdout = LoggerWriter(logging.info)
+sys.stderr = LoggerWriter(logging.error)
+
+print(f"[+] Logging initialized. All output will also be saved to '{log_filename}'")
 # ===== End of logging setup =====
 
 # Load environment variables
