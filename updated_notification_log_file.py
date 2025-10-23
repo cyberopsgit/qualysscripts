@@ -8,6 +8,23 @@ from panos.panorama import Panorama
 from panos.device import SystemSettings
 from dotenv import load_dotenv
 
+# ===============================
+# Stage Tracking Helpers
+# ===============================
+def stage_start(stage_name):
+    print(f"\n{'='*70}")
+    print(f"[Stage] {stage_name} — Started")
+    print(f"{'='*70}")
+
+def stage_success(stage_name):
+    print(f"✅ [Stage: {stage_name}] Completed Successfully")
+    print(f"{'-'*70}")
+
+def stage_fail(stage_name, error):
+    print(f"❌ [Stage: {stage_name}] Failed — {error}")
+    print(f"{'-'*70}")
+
+
 # ===== Logging setup (only change) =====
 # Create a logfile name like palo_YYYYMMDD.log in the same directory
 date_str = datetime.now().strftime("%Y%m%d")
@@ -46,6 +63,7 @@ load_dotenv()
 # ===============================
 # Palo Alto - Production
 # ===============================
+stage_start("Production Panorama Fetch")
 pano = Panorama(os.getenv("PALO_IP"), "", "", os.getenv("PALO_API_KEY"))
 devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
 
@@ -60,11 +78,13 @@ for device in devices:
     except:
         continue
 print(f"[+] Found {len(devices)} devices in Prod Panorama")
+stage_success("Production Panorama Fetch")
 
 # ===============================
 # Palo Alto - Lab (Fixed)
 # ===============================
 # ✅ Fix 1: Use proper API key authentication
+stage_start("Lab Panorama Fetch")
 lab_pano = Panorama(os.getenv("LAB_IP"), api_key=os.getenv("LAB_API_KEY"))
 lab_devices = lab_pano.refresh_devices(expand_vsys=False, include_device_groups=False)
 
@@ -83,6 +103,8 @@ for device in lab_devices:
     except Exception as e:
         print("[DEBUG] Error with lab device:", e)
         continue
+stage_success("Lab Panorama Fetch")
+
 
 # ===============================
 # Print All Palo Alto IPs
@@ -96,6 +118,7 @@ print(f"\n{datetime.now().strftime('%Y-%m-%d')} Report from Panorama(s)")
 # ===============================
 # Qualys Section
 # ===============================
+stage_start("Qualys Asset Group Fetch")
 
 qualys_user = os.getenv("QUALYS_USER")
 qualys_pass = os.getenv("QUALYS_PASS")
@@ -134,6 +157,7 @@ try:
 except Exception as e:
     print(f"[X] Error fetching Qualys IPs: {e}")
     qualys_ips = []
+stage_success("Qualys Asset Group Fetch")
 
 # ===============================
 # Stage 3 - Compare Palo Alto vs Qualys
@@ -149,6 +173,7 @@ else:
 # ===============================
 # Stage 4 - Full sync: Replace Qualys group IPs with all Panorama IPs
 # ===============================
+stage_start("Qualys Asset Group Sync")
 print(f"\n[+] Syncing Panorama IPs into Qualys Asset Group {qualys_group_id} (full replace)...")
 
 all_palo_ips = sorted(set(palo_ips))
@@ -184,3 +209,10 @@ try:
 
 except Exception as e:
     print(f"[X] Error while updating Qualys group: {e}")
+stage_success("Qualys Asset Group Sync")
+
+stage_start("Summary")
+print(f"[✓] Total Panorama IPs synced: {len(all_palo_ips)}")
+print(f"[✓] Qualys Asset Group ID: {qualys_group_id}")
+print(f"[✓] Log file: {log_filename}")
+stage_success("Summary")
