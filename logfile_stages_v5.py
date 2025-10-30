@@ -216,15 +216,16 @@ if not overall_ok:
     print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
     sys.exit(5)
 
-# Stage 6 - replace entire auth record IP list (direct replace)
+# Stage 6 - replace entire auth record IP list (use 'ips' parameter which the auth API accepts)
 if AUTH_RECORD_ID and combined_ips:
     stage_name = f"Update Qualys authentication record ID {AUTH_RECORD_ID}"
     stage_start(stage_name)
     try:
+        # use 'ips' (not set_ips) because the /fo/auth/<type>/ update accepts 'ips' to set the list
         update_payload = {
             "action": "update",
             "ids": AUTH_RECORD_ID,
-            "set_ips": set_ips_str,
+            "ips": set_ips_str,
             "echo_request": "1"
         }
         update_resp = requests.post(
