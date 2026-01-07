@@ -1,0 +1,13 @@
+stages:
+  - run
+
+palo_qualys_sync:
+  stage: run
+  image: python:3.10
+  script:
+    - pip install --no-cache-dir -r requirements.txt
+    - python logfile_stages_v5.py
+  artifacts:
+    paths:
+      - logs/
+    expire_in: 7 days
