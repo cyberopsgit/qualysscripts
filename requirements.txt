@@ -1,0 +1,4 @@
+requests
+pan-os-python
+boto3
+urllib3
