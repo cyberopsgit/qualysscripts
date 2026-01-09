@@ -15,3 +15,8 @@ run_palo_qualys_script:
     expire_in: 7 days
   rules:
     - if: '$CI_PIPELINE_SOURCE == "web" || $CI_COMMIT_BRANCH'
+
+
+
+python -c "import zipfile; zipfile.ZipFile('pan_os_python-1.9.0-py2.py3-none-any.whl').extractall('panos_lib')"
+
