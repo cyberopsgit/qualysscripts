@@ -21,3 +21,10 @@ run_palo_qualys_script:
 python -c "import zipfile; zipfile.ZipFile('pan_os_python-1.9.0-py2.py3-none-any.whl').extractall('panos_lib')"
 
 python -c "import zipfile; zipfile.ZipFile('pan_python-0.17.0-py2.py3-none-any.whl').extractall('pan_lib')"
+
+
+
+Variable Name	Value
+AWS_ACCESS_KEY_ID	<aws-access-key>
+AWS_SECRET_ACCESS_KEY	<aws-secret-key>
+AWS_DEFAULT_REGION	us-east-1
