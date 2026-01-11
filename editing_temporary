@@ -1,5 +1,21 @@
 11 jan 2026
 
+[
+  {
+    "Sid": "AllowSecretsManagerRead",
+    "Effect": "Allow",
+    "Action": [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret"
+    ],
+    "Resource": "*"
+  }
+]
+
+
+
+11 jan 2026
+
 {
   "Version": "2012-10-17",
   "Statement": [
