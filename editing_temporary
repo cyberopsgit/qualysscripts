@@ -1,4 +1,22 @@
-9 jan 2026 :
+11 jan 2026
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSecretsManagerRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:*:secret:*"
+    }
+  ]
+}
+
+
+29 jan 2026 :
 
 run_palo_qualys_script:
   stage: test   # <-- use an EXISTING stage name
