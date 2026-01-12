@@ -1,3 +1,11 @@
+variables:
+  AWS_ENVIRONMENT: qa
+  AWS_SHARED_CREDENTIALS_FILE: "$CI_PROJECT_DIR/.aws/credentials"
+  AWS_CONFIG_FILE: "$CI_PROJECT_DIR/.aws/config"
+
+
+
+
 11 jan 2026
 
 [
