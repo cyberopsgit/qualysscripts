@@ -25,12 +25,19 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import boto3
 from botocore.exceptions import ClientError
 
+session = boto3.session.Session()
+client = session.client(
+    service_name="secretsmanager",
+    region_name="us-east-1"
+)
+
 def get_secret():
-    secret_name = "qualys-gs-dev-f-paloalt-92806b-qualys-secret"
-    region_name = "us-east-1"
+    secret_name = "qualys-secret-qs-dev-qualys-script"
+
     try:
         response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
+        logger.critical("Failed to fetch secret from AWS Secrets Manager")
         raise e
 
     return json.loads(response["SecretString"])
