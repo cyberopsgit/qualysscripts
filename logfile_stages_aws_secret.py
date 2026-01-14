@@ -31,13 +31,43 @@ client = session.client(
     region_name="us-east-1"
 )
 
+# =========================================================
+# >>> DEBUG HELPERS (TEMP – FOR SECRET NAME TROUBLESHOOTING)
+# =========================================================
+def debug_aws_context(secret_name):
+    try:
+        sts = boto3.client("sts")
+        identity = sts.get_caller_identity()
+
+        print("===== AWS DEBUG CONTEXT =====")
+        print(f"AWS Account : {identity['Account']}")
+        print(f"Caller ARN  : {identity['Arn']}")
+        print(f"Region      : us-east-1")
+        print(f"Secret NAME : {secret_name}")
+        print("============================")
+    except Exception as e:
+        print("⚠️ Failed to fetch AWS identity:", e)
+
 def get_secret():
     secret_name = "qualys-secret-qs-dev-qualys-script"
 
+    # 🔴 DEBUG – visible in GitLab logs
+    debug_aws_context(secret_name)
+
     try:
         response = client.get_secret_value(SecretId=secret_name)
+
+        print("===== SECRET FETCH SUCCESS =====")
+        print(f"Resolved ARN : {response.get('ARN')}")
+        print("================================")
+
+        return json.loads(response["SecretString"])
+
     except ClientError as e:
-        print("Failed to fetch secret from AWS Secrets Manager:", e)
+        print("===== SECRET FETCH FAILED =====")
+        print(f"Error Code : {e.response['Error']['Code']}")
+        print(f"Error Msg  : {e.response['Error']['Message']}")
+        print("================================")
         raise
 
     return json.loads(response["SecretString"])
