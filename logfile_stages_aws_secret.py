@@ -37,7 +37,7 @@ def get_secret():
     try:
         response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
-        logger.critical("Failed to fetch secret from AWS Secrets Manager:", e)
+        print("Failed to fetch secret from AWS Secrets Manager:", e)
         raise
 
     return json.loads(response["SecretString"])
