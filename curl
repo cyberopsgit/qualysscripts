@@ -1,0 +1,1 @@
+curl -k -X POST "https://10.11.1.61/api/?type=op&cmd=<show><interface>all</interface></show>&key=LUFRPT1PS3Z1QnRKbEdDN1JoVWNsdXlxe1hLzBER0U9b0RGcit6UmZFwUEdQdE1UV24yZE5NSmVuaWRtV1NLVVRQNncrewl2VldQRVoyc2xZZUVVnc4R1BNczJNYzQ2dGxxaD56OU96cUkraHERsOQvVzV0amJJSU44SXk2emFsaWQvZzg9PQ=="
