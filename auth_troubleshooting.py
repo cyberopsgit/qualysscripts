@@ -8,7 +8,7 @@ from panos.device import SystemSettings
 from dotenv import load_dotenv
 import logging
 import urllib3
-import time   # ✅ REQUIRED CHANGE
+import time  # ✅ REQUIRED CHANGE
 
 # load .env file
 load_dotenv()
@@ -180,7 +180,7 @@ if AUTH_RECORD_ID and combined_ips:
     stage_name = f"Update Qualys authentication record ID {AUTH_RECORD_ID}"
     stage_start(stage_name)
     try:
-        # STEP 1: CLEAR IPS
+        # STEP 1: CLEAR IPs
         clear_payload = {
             "action": "update",
             "ids": AUTH_RECORD_ID,
@@ -197,11 +197,12 @@ if AUTH_RECORD_ID and combined_ips:
         if clear_resp.status_code != 200:
             raise RuntimeError("Auth record IP clear failed")
 
-        logger.info("Auth record IPs cleared")
+        logger.info("Auth record IPs cleared successfully")
 
+        # Qualys backend propagation delay
         time.sleep(3)
 
-        # STEP 2: ADD IPS
+        # STEP 2: ADD IPs
         add_payload = {
             "action": "update",
             "ids": AUTH_RECORD_ID,
@@ -239,10 +240,15 @@ if AUTH_RECORD_ID and combined_ips:
     except Exception as e:
         overall_ok = False
         stage_fail(stage_name, e)
+else:
+    logger.info("AUTH_RECORD_ID not provided or no combined IPs; skipping auth record update.")
 
+# final summary
 if overall_ok:
+    logger.info("Script completed successfully.")
     print("Script Execution Successfully, please check the log file for details", file=ORIGINAL_STDOUT)
     sys.exit(0)
 else:
+    logger.error("Script completed with failures.")
     print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
     sys.exit(7)
