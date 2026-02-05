@@ -8,7 +8,6 @@ from panos.device import SystemSettings
 from dotenv import load_dotenv
 import logging
 import urllib3
-import time  # <-- REQUIRED CHANGE ONLY
 
 # load .env file
 load_dotenv()
@@ -67,7 +66,10 @@ def fetch_ips_from_host(host, api_key, label):
     """
     ips = set()
     if not host or not api_key:
-        logger.info("Skipping %s because host or api_key not provided (host=%s, key_provided=%s)", label, host, bool(api_key))
+        logger.info(
+            "Skipping %s because host or api_key not provided (host=%s, key_provided=%s)",
+            label, host, bool(api_key)
+        )
         return ips
     try:
         print(f"[+] Connecting to Panorama {host} ({label})")
@@ -88,7 +90,10 @@ def fetch_ips_from_host(host, api_key, label):
         logger.info("Host %s (%s) fetched %d IPs", host, label, fetched)
     except Exception as e:
         print(f"[ERROR] Failed to connect or fetch devices from {host} ({label}): {e}")
-        logger.error("Panorama host %s (%s) failed: %s\n%s", host, label, str(e), traceback.format_exc())
+        logger.error(
+            "Panorama host %s (%s) failed: %s\n%s",
+            host, label, str(e), traceback.format_exc()
+        )
     return ips
 
 # ---------------------------
@@ -115,7 +120,7 @@ AUTH_RECORD_ID = os.getenv("AUTH_RECORD_ID")
 QUALYS_URL = "https://qualysapi.qualys.com/api/2.0/fo/asset/group/"
 QUALYS_AUTH_UPDATE_URL = "https://qualysapi.qualys.com/api/2.0/fo/auth/unix/"
 
-# required minimal variables (we allow the panorama hosts to be optional — script will skip missing ones)
+# required minimal variables
 required = {
     "QUALYS_USER": QUALYS_USER,
     "QUALYS_PASS": QUALYS_PASS,
@@ -143,7 +148,10 @@ try:
 
     used_hosts = [h for h in hosts if h[0] and h[1]]
     if not used_hosts:
-        print("[WARN] No Panorama hosts with both host and API key provided. Nothing to fetch.", file=ORIGINAL_STDOUT)
+        print(
+            "[WARN] No Panorama hosts with both host and API key provided. Nothing to fetch.",
+            file=ORIGINAL_STDOUT
+        )
         logger.warning("No panorama hosts configured (both host and api key). Exiting.")
         overall_ok = False
         raise RuntimeError("No Panorama hosts configured (both host and api key)")
@@ -157,7 +165,10 @@ try:
     for ip in sorted(all_ips):
         print("   ", ip)
 
-    logger.info("✅ [Stage: %s] Completed Successfully with %d IPs fetched", stage_name, len(all_ips))
+    logger.info(
+        "✅ [Stage: %s] Completed Successfully with %d IPs fetched",
+        stage_name, len(all_ips)
+    )
 except Exception as e:
     overall_ok = False
     stage_fail(stage_name, e)
@@ -186,7 +197,10 @@ try:
     print(clear_resp.text[:1000])
     if clear_resp.status_code != 200:
         raise RuntimeError(f"Qualys clear failed: HTTP {clear_resp.status_code}")
-    logger.info("✅ [Stage: %s] Completed Successfully (cleared existing IPs)", stage_name)
+    logger.info(
+        "✅ [Stage: %s] Completed Successfully (cleared existing IPs)",
+        stage_name
+    )
 except Exception as e:
     overall_ok = False
     stage_fail(stage_name, e)
@@ -226,74 +240,58 @@ if not overall_ok:
     print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
     sys.exit(6)
 
-# Stage - replace entire auth record IP list (CLEAR → WAIT → ADD → VERIFY)
+# Stage - replace entire auth record IP list (SUPPORTED OPERATION ONLY)
 if AUTH_RECORD_ID and combined_ips:
     stage_name = f"Update Qualys authentication record ID {AUTH_RECORD_ID}"
     stage_start(stage_name)
     try:
-        clear_payload = {
-            "action": "update",
-            "ids": AUTH_RECORD_ID,
-            "ips": ""
-        }
-        clear_resp = requests.post(
-            QUALYS_AUTH_UPDATE_URL,
-            data=clear_payload,
-            auth=(QUALYS_USER, QUALYS_PASS),
-            verify=False,
-            headers={"X-Requested-With": "python-requests"},
-            timeout=60
-        )
-        if clear_resp.status_code != 200:
-            raise RuntimeError(f"Auth record clear failed: HTTP {clear_resp.status_code}")
-
-        time.sleep(3)
-
-        add_payload = {
+        update_payload = {
             "action": "update",
             "ids": AUTH_RECORD_ID,
             "ips": set_ips_str
         }
-        add_resp = requests.post(
+        update_resp = requests.post(
             QUALYS_AUTH_UPDATE_URL,
-            data=add_payload,
+            data=update_payload,
             auth=(QUALYS_USER, QUALYS_PASS),
             verify=False,
             headers={"X-Requested-With": "python-requests"},
             timeout=120
         )
-        if add_resp.status_code != 200:
-            raise RuntimeError(f"Auth record add failed: HTTP {add_resp.status_code}")
-
-        verify_payload = {
-            "action": "list",
-            "ids": AUTH_RECORD_ID,
-            "show_ips": "1"
-        }
-        verify_resp = requests.post(
-            QUALYS_AUTH_UPDATE_URL,
-            data=verify_payload,
-            auth=(QUALYS_USER, QUALYS_PASS),
-            verify=False,
-            headers={"X-Requested-With": "python-requests"},
-            timeout=60
+        logger.debug("Auth update response status: %s", update_resp.status_code)
+        logger.debug(
+            "Auth update response body (truncated): %s",
+            update_resp.text[:2000]
         )
+        if update_resp.status_code != 200:
+            raise RuntimeError(f"Auth record update failed: HTTP {update_resp.status_code}")
 
-        logger.debug("Auth verify response body (truncated): %s", verify_resp.text[:2000])
-        logger.info("Auth record IPs replaced successfully")
+        logger.info(
+            "✅ [Stage: %s — Combined list of %d IPs] Completed Successfully (auth record updated)",
+            stage_name,
+            len(combined_ips)
+        )
 
     except Exception as e:
         overall_ok = False
         stage_fail(stage_name, e)
 else:
-    logger.info("AUTH_RECORD_ID not provided or no combined IPs; skipping auth record update.")
+    logger.info(
+        "AUTH_RECORD_ID not provided or no combined IPs; skipping auth record update."
+    )
 
 # final summary
 if overall_ok:
     logger.info("Script completed successfully.")
-    print("Script Execution Successfully, please check the log file for details", file=ORIGINAL_STDOUT)
+    print(
+        "Script Execution Successfully, please check the log file for details",
+        file=ORIGINAL_STDOUT
+    )
     sys.exit(0)
 else:
     logger.error("Script completed with failures.")
-    print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
+    print(
+        "Script Execution failed, please check the log file for details",
+        file=ORIGINAL_STDOUT
+    )
     sys.exit(7)
