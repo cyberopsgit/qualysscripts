@@ -8,7 +8,7 @@ from panos.device import SystemSettings
 from dotenv import load_dotenv
 import logging
 import urllib3
-import time  # ✅ REQUIRED CHANGE
+import time  # <-- REQUIRED CHANGE ONLY
 
 # load .env file
 load_dotenv()
@@ -61,6 +61,10 @@ def stage_fail(name, err):
     print("-"*70)
 
 def fetch_ips_from_host(host, api_key, label):
+    """
+    Connect to a single Panorama host and return a set of device IPs discovered.
+    If host or api_key is missing, returns an empty set.
+    """
     ips = set()
     if not host or not api_key:
         logger.info("Skipping %s because host or api_key not provided (host=%s, key_provided=%s)", label, host, bool(api_key))
@@ -88,8 +92,9 @@ def fetch_ips_from_host(host, api_key, label):
     return ips
 
 # ---------------------------
-# Environment variables
+# Environment variables: explicit per-host variables (clear & unambiguous)
 # ---------------------------
+
 PALO_PROD_HOST = os.getenv("PALO_PROD_HOST")
 PALO_PROD_API_KEY = os.getenv("PALO_PROD_API_KEY")
 
@@ -110,6 +115,7 @@ AUTH_RECORD_ID = os.getenv("AUTH_RECORD_ID")
 QUALYS_URL = "https://qualysapi.qualys.com/api/2.0/fo/asset/group/"
 QUALYS_AUTH_UPDATE_URL = "https://qualysapi.qualys.com/api/2.0/fo/auth/unix/"
 
+# required minimal variables (we allow the panorama hosts to be optional — script will skip missing ones)
 required = {
     "QUALYS_USER": QUALYS_USER,
     "QUALYS_PASS": QUALYS_PASS,
@@ -123,7 +129,7 @@ if missing:
 
 overall_ok = True
 
-# Fetch IPs
+# Stage 1..4: Fetch from each of the four named hosts
 stage_name = "Fetch IPs from configured Palo Alto Panorama hosts"
 stage_start(stage_name)
 all_ips = set()
@@ -137,50 +143,94 @@ try:
 
     used_hosts = [h for h in hosts if h[0] and h[1]]
     if not used_hosts:
-        raise RuntimeError("No Panorama hosts configured")
+        print("[WARN] No Panorama hosts with both host and API key provided. Nothing to fetch.", file=ORIGINAL_STDOUT)
+        logger.warning("No panorama hosts configured (both host and api key). Exiting.")
+        overall_ok = False
+        raise RuntimeError("No Panorama hosts configured (both host and api key)")
 
     for host, key, label in hosts:
         ips = fetch_ips_from_host(host, key, label)
         if ips:
             all_ips |= ips
 
-    logger.info("Fetched %d unique IPs", len(all_ips))
+    print(f"[INFO] Total unique IPs fetched across all configured panoramas: {len(all_ips)}")
+    for ip in sorted(all_ips):
+        print("   ", ip)
+
+    logger.info("✅ [Stage: %s] Completed Successfully with %d IPs fetched", stage_name, len(all_ips))
 except Exception as e:
     overall_ok = False
     stage_fail(stage_name, e)
 
 if not overall_ok:
+    print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
     sys.exit(3)
 
+# Stage: Combine (already combined into all_ips), then Qualys operations
 combined_ips = sorted(all_ips)
-set_ips_str = ",".join(combined_ips)
 
-# Clear asset group
-requests.post(
-    QUALYS_URL,
-    data={"action": "edit", "id": QUALYS_GROUP_ID, "set_ips": ""},
-    auth=(QUALYS_USER, QUALYS_PASS),
-    verify=False,
-    timeout=60
-)
+# Stage - clear asset group
+stage_name = "Remove current IP list from Qualys Asset group"
+stage_start(stage_name)
+try:
+    clear_data = {"action": "edit", "id": QUALYS_GROUP_ID, "set_ips": ""}
+    clear_resp = requests.post(
+        QUALYS_URL,
+        data=clear_data,
+        auth=(QUALYS_USER, QUALYS_PASS),
+        verify=False,
+        headers={"X-Requested-With": "python-requests"},
+        timeout=60
+    )
+    print(f"[DEBUG] Qualys clear HTTP status: {clear_resp.status_code}")
+    print(clear_resp.text[:1000])
+    if clear_resp.status_code != 200:
+        raise RuntimeError(f"Qualys clear failed: HTTP {clear_resp.status_code}")
+    logger.info("✅ [Stage: %s] Completed Successfully (cleared existing IPs)", stage_name)
+except Exception as e:
+    overall_ok = False
+    stage_fail(stage_name, e)
 
-# Add asset group
-requests.post(
-    QUALYS_URL,
-    data={"action": "edit", "id": QUALYS_GROUP_ID, "set_ips": set_ips_str},
-    auth=(QUALYS_USER, QUALYS_PASS),
-    verify=False,
-    timeout=120
-)
+if not overall_ok:
+    print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
+    sys.exit(5)
 
-# ==========================================================
-# ✅ FIXED AUTH RECORD UPDATE (ONLY REQUIRED CHANGE)
-# ==========================================================
+# Stage - add to Qualys Asset Group
+stage_name = "Add the latest Palo Alto IPs to Qualys Asset group"
+stage_start(stage_name)
+try:
+    set_ips_str = ",".join(combined_ips)
+    add_data = {"action": "edit", "id": QUALYS_GROUP_ID, "set_ips": set_ips_str}
+    add_resp = requests.post(
+        QUALYS_URL,
+        data=add_data,
+        auth=(QUALYS_USER, QUALYS_PASS),
+        verify=False,
+        headers={"X-Requested-With": "python-requests"},
+        timeout=120
+    )
+    print(f"[DEBUG] Qualys add HTTP status: {add_resp.status_code}")
+    print(add_resp.text[:1000])
+    if add_resp.status_code != 200:
+        raise RuntimeError(f"Qualys add failed: HTTP {add_resp.status_code}")
+    logger.info(
+        "✅ [Stage: %s — Combined list of %d IPs] Completed Successfully",
+        stage_name,
+        len(combined_ips)
+    )
+except Exception as e:
+    overall_ok = False
+    stage_fail(stage_name, e)
+
+if not overall_ok:
+    print("Script Execution failed, please check the log file for details", file=ORIGINAL_STDOUT)
+    sys.exit(6)
+
+# Stage - replace entire auth record IP list (CLEAR → WAIT → ADD → VERIFY)
 if AUTH_RECORD_ID and combined_ips:
     stage_name = f"Update Qualys authentication record ID {AUTH_RECORD_ID}"
     stage_start(stage_name)
     try:
-        # STEP 1: CLEAR IPs
         clear_payload = {
             "action": "update",
             "ids": AUTH_RECORD_ID,
@@ -195,14 +245,10 @@ if AUTH_RECORD_ID and combined_ips:
             timeout=60
         )
         if clear_resp.status_code != 200:
-            raise RuntimeError("Auth record IP clear failed")
+            raise RuntimeError(f"Auth record clear failed: HTTP {clear_resp.status_code}")
 
-        logger.info("Auth record IPs cleared successfully")
-
-        # Qualys backend propagation delay
         time.sleep(3)
 
-        # STEP 2: ADD IPs
         add_payload = {
             "action": "update",
             "ids": AUTH_RECORD_ID,
@@ -217,9 +263,8 @@ if AUTH_RECORD_ID and combined_ips:
             timeout=120
         )
         if add_resp.status_code != 200:
-            raise RuntimeError("Auth record IP add failed")
+            raise RuntimeError(f"Auth record add failed: HTTP {add_resp.status_code}")
 
-        # STEP 3: VERIFY
         verify_payload = {
             "action": "list",
             "ids": AUTH_RECORD_ID,
@@ -234,7 +279,7 @@ if AUTH_RECORD_ID and combined_ips:
             timeout=60
         )
 
-        logger.debug("Auth verify response:\n%s", verify_resp.text[:2000])
+        logger.debug("Auth verify response body (truncated): %s", verify_resp.text[:2000])
         logger.info("Auth record IPs replaced successfully")
 
     except Exception as e:
