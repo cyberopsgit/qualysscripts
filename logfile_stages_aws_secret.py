@@ -11,7 +11,6 @@ import logging
 import urllib3
 import traceback
 import json
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # =========================================================
@@ -24,12 +23,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================
 import boto3
 from botocore.exceptions import ClientError
-
+AWS_REGION = os.getenv("region_name", "us-east-1")
+SECRET_NAME = os.getenv("AWS_SECRET_NAME", "qualys-secret-qs-dev-qualys-script")
 session = boto3.session.Session()
-client = session.client(
-    service_name="secretsmanager",
-    region_name="us-east-1"
-)
+client = session.client(service_name="secretsmanager", region_name="us-east-1")
 
 # =========================================================
 # >>> DEBUG HELPERS (TEMP – FOR SECRET NAME TROUBLESHOOTING)
@@ -49,13 +46,13 @@ def debug_aws_context(secret_name):
         print("⚠️ Failed to fetch AWS identity:", e)
 
 def get_secret():
-    secret_name = "qualys-secret-qs-dev-qualys-script"
+    secret_name = SECRET_NAME
 
     # 🔴 DEBUG – visible in GitLab logs
     debug_aws_context(secret_name)
 
     try:
-        response = client.get_secret_value(SecretId=secret_name)
+        response = client.get_secret_value(SecretId=secret_name, VersionStage='AWSCURRENT')
 
         print("===== SECRET FETCH SUCCESS =====")
         print(f"Resolved ARN : {response.get('ARN')}")
