@@ -183,13 +183,29 @@ try:
     devices = pano.refresh_devices(expand_vsys=False, include_device_groups=False)
     print(f"[+] Production Panorama devices count: {len(devices)}")
     for dev in devices:
-        try:
-            ss = dev.find("", SystemSettings)
-            ip = getattr(ss, "ip_address", None)
-            if ip:
-                prod_ips.add(ip)
-        except Exception as e:
-            print(f"[WARN] Could not read system settings for a prod device: {e}")
+    try:
+        if not dev.hostname:
+            print(f"[WARN] Skipping device with no hostname: {dev}")
+            continue
+        ss = SystemSettings(
+            hostname=dev.hostname,
+            parent=pano
+        )
+        ss.refresh()
+        ip = getattr(ss, "ip_address", None)
+        if ip:
+            prod_ips.add(ip)
+    except Exception as e:
+        print(f"[WARN] Could not read system settings for a prod device: {e}")
+#Modified this below code due to the hostname error. Added new lines from 186 to 199 which is a new code for the error we have received.
+    #for dev in devices:
+       # try:
+           # ss = dev.find("", SystemSettings)
+           # ip = getattr(ss, "ip_address", None)
+            #if ip:
+                #prod_ips.add(ip)
+        #except Exception as e:
+            #print(f"[WARN] Could not read system settings for a prod device: {e}")
     print(f"[INFO] IPs fetched from Prod ({len(prod_ips)}):")
     for ip in sorted(prod_ips):
         print("   ", ip)
