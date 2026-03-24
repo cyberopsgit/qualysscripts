@@ -70,7 +70,7 @@ QUALYS_PASS = os.getenv("QUALYS_PASSWORD")
 AUTH_RECORD_ID = os.getenv("AUTH_RECORD_ID")
 TARGET_IPS = os.getenv("TARGET_IPS")
 
-QUALYS_URL = "https://qualysapi.qualys.com/api/2.0/fo/auth/oracle/"
+QUALYS_URL = "https://qualysapi.qualys.com/api/3.0/fo/auth/oracle/"
 
 required = {
     "QUALYS_USERNAME": QUALYS_USER,
@@ -123,7 +123,7 @@ stage_start(stage_name)
 try:
     update_payload = {
         "action": "update",
-        "id": AUTH_RECORD_ID, 
+        "ids": AUTH_RECORD_ID, 
         "ips": set_ips_str,   # Use 'ips' as required by the endpoint to avoid 400 error
         "echo_request": "1"
     }
