@@ -1,0 +1,10 @@
+# Qualys Tag Configuration
+# Format: Add your Qualys Tag Names and their corresponding IDs here
+# You can get these from Qualys Console > Assets > Tags
+
+TAG_NAME,TAG_ID
+PROD_FINANCE,123456
+DEV_ENGINEERING,123457
+PROD_HR,123458
+STAGING_IT,123459
+PROD_NETWORKING,123460
